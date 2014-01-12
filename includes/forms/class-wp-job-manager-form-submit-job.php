@@ -198,7 +198,7 @@ class WP_Job_Manager_Form_Submit_Job extends WP_Job_Manager_Form {
 	 * @return array of data
 	 */
 	protected static function get_posted_fields() {
-		
+
 		self::init_fields();
 
 		$values = array();
@@ -207,7 +207,7 @@ class WP_Job_Manager_Form_Submit_Job extends WP_Job_Manager_Form {
 			foreach ( $fields as $key => $field ) {
 				// Get the value
 				$field_type = str_replace( '-', '_', $field['type'] );
-				
+
 				if ( method_exists( __CLASS__, "get_posted_{$field_type}_field" ) )
 					$values[ $group_key ][ $key ] = call_user_func( __CLASS__ . "::get_posted_{$field_type}_field", $key, $field );
 				else
@@ -248,12 +248,42 @@ class WP_Job_Manager_Form_Submit_Job extends WP_Job_Manager_Form {
 	 * @return string
 	 */
 	protected static function get_posted_file_field( $key, $field ) {
-		$file = self::upload_image( $key );
-		
-		if ( ! $file )
-			$file = self::get_posted_field( 'current_' . $key, $field );
+		$url = self::upload_image( $key )['url'];
 
-		return $file;
+		if ( ! $url )
+			$url = self::get_posted_field( 'current_' . $key, $field );
+
+		return $url;
+	}
+
+	/**
+	 * Get the value of a posted featured image field
+	 * @param  string $key
+	 * @param  array $field
+	 * @return string
+	 */
+	protected static function get_posted_featured_image_field( $key, $field ) {
+		$file = self::upload_image( $key );
+
+		if ( ! $file['url'] )
+			return self::get_posted_field( 'current_' . $key, $field );
+
+		$job_id = self::get_job_id();
+		$attachment = array(
+      'post_mime_type' 	=> $file['type'],
+      'guid' 						=> $file['url'],
+      'post_parent' 		=> self::get_job_id(),
+      'post_title' 			=> basename( $file['file'] ),
+      'post_content' 		=> '',
+		);
+
+		$id = wp_insert_attachment( $attachment, $file['file'], $job_id );
+		if ( !is_wp_error($id) ) {
+      wp_update_attachment_metadata( $id, wp_generate_attachment_metadata( $id, $file['file'] ) );
+      set_post_thumbnail( $job_id, $id );
+    }
+
+		return $file['url'];
 	}
 
 	/**
@@ -407,10 +437,10 @@ class WP_Job_Manager_Form_Submit_Job extends WP_Job_Manager_Form {
 	 */
 	public static function submit_handler() {
 		try {
-				
+
 			// Init fields
 			self::init_fields();
-			
+
 			// Get posted values
 			$values = self::get_posted_fields();
 
@@ -456,7 +486,7 @@ class WP_Job_Manager_Form_Submit_Job extends WP_Job_Manager_Form {
 	 * @param  string $status
 	 */
 	protected static function save_job( $post_title, $post_content, $status = 'preview', $values = array() ) {
-			
+
 		$job_slug   = array();
 
 		// Prepend with company name
@@ -623,7 +653,7 @@ class WP_Job_Manager_Form_Submit_Job extends WP_Job_Manager_Form {
 			if ( ! empty( $upload['error'] ) ) {
 				throw new Exception( $upload['error'] );
 			} else {
-				return $upload['url'];
+				return $upload;
 			}
 		}
 	}
