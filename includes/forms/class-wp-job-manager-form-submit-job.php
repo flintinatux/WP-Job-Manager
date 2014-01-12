@@ -268,6 +268,8 @@ class WP_Job_Manager_Form_Submit_Job extends WP_Job_Manager_Form {
 		if ( ! $file['url'] )
 			return self::get_posted_field( 'current_' . $key, $field );
 
+		include_once( ABSPATH . 'wp-admin/includes/image.php' );
+
 		$job_id = self::get_job_id();
 		$attachment = array(
       'post_mime_type' 	=> $file['type'],
