@@ -263,14 +263,20 @@ class WP_Job_Manager_Form_Submit_Job extends WP_Job_Manager_Form {
 	 * @return string
 	 */
 	protected static function get_posted_featured_image_field( $key, $field ) {
-		$file = self::upload_image( $key );
+		$file   = self::upload_image( $key );
+		$job_id = self::get_job_id();
 
-		if ( ! $file['url'] )
-			return self::get_posted_field( 'current_' . $key, $field );
+		if ( ! $file['url'] ) {
+			$url = self::get_posted_field( 'current_' . $key, $field );
+			if ( ! $url ) {
+				self::delete_job_featured_image( $job_id );
+				return '';
+			}
+			return $url;
+		}
 
 		include_once( ABSPATH . 'wp-admin/includes/image.php' );
 
-		$job_id = self::get_job_id();
 		$attachment = array(
       'post_mime_type' 	=> $file['type'],
       'guid' 						=> $file['url'],
@@ -280,12 +286,20 @@ class WP_Job_Manager_Form_Submit_Job extends WP_Job_Manager_Form {
 		);
 
 		$id = wp_insert_attachment( $attachment, $file['file'], $job_id );
-		if ( !is_wp_error($id) ) {
+		if ( ! is_wp_error( $id ) ) {
+			self::delete_job_featured_image( $job_id );
       wp_update_attachment_metadata( $id, wp_generate_attachment_metadata( $id, $file['file'] ) );
       set_post_thumbnail( $job_id, $id );
     }
 
 		return $file['url'];
+	}
+
+	protected static function delete_job_featured_image( $job_id ) {
+		if ( $old_id = get_post_thumbnail_id( $job_id ) ) {
+			delete_post_thumbnail( $job_id );
+			wp_delete_attachment( $old_id, true );
+		}
 	}
 
 	/**
